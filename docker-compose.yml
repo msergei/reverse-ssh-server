@@ -5,9 +5,6 @@ services:
     build:
       context: .
     ports:
-      - "22022:22"
+      - "34051:22"
       - "1194:1080"
-    environment:
-      ROOT_PASS: rwet432mugWRdmiu24876dasbyu6rv674
     restart: always
-
