@@ -1,4 +1,4 @@
-FROM alpine:3.22
+FROM alpine:3.24
 
 RUN apk add --no-cache openssh-server nftables setpriv && \
     adduser -D -H -u 10022 -s /sbin/nologin tunnel && \

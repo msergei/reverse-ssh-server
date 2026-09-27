@@ -55,7 +55,7 @@ compromised. Now:
 ```bash
 cd server
 cp .env.example .env   # set LAN_BIND, AUTHORIZED_KEYS
-docker compose up -d --build
+docker compose build --pull && docker compose up -d
 docker compose logs | grep ssh-ed25519   # host key → client SERVER_HOST_KEY
 ```
 
@@ -71,7 +71,7 @@ base64 < /tmp/k | tr -d '\n'   # → SSH_PRIVATE_KEY_B64
 cat /tmp/k.pub                 # → server AUTHORIZED_KEYS
 rm /tmp/k /tmp/k.pub
 # set SERVER_HOST, SERVER_HOST_KEY, TARGET_PORT, BROWSER_PASSWORD
-docker compose up -d --build
+docker compose build --pull && docker compose up -d
 ```
 
 `docker-compose.browser.yml` adds Firefox (linuxserver, HTTPS with a
@@ -90,4 +90,14 @@ Open `https://<LAN_BIND>:<LAN_PORT>/` from the LAN.
 ```bash
 docker compose logs -f           # client: tunnel + watchdog
 docker compose ps                # tunnel health = end-to-end check
+```
+
+## Updates
+
+Rebuild both sides regularly: `--pull` fetches the latest Alpine patch release
+(and with it OpenSSH fixes), a plain `--build` reuses the cached base image.
+
+```bash
+docker compose build --pull && docker compose up -d   # server and client
+docker compose pull browser && docker compose up -d   # client: Firefox
 ```

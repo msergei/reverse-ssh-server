@@ -1,4 +1,4 @@
-FROM alpine:3.22
+FROM alpine:3.24
 
 RUN apk add --no-cache openssh-client curl && \
     adduser -D -H -u 10022 -s /sbin/nologin tunnel
