@@ -1,6 +1,14 @@
 #!/bin/sh
 set -eu
 
+if [ "$(id -u)" = 0 ]; then
+    # Fails closed: without the firewall the container exits instead of serving
+    nft -f /etc/egress.nft
+    # Continue as the tunnel user with every capability dropped
+    exec setpriv --reuid=tunnel --regid=tunnel --clear-groups \
+        --inh-caps=-all --bounding-set=-all -- /bin/sh "$0" "$@"
+fi
+
 if [ -z "${AUTHORIZED_KEYS:-}" ]; then
     echo "AUTHORIZED_KEYS is empty, refusing to start" >&2
     exit 1

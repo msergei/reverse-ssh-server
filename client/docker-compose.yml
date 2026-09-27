@@ -3,7 +3,7 @@ name: reverse-ssh-client
 x-tunnel-env: &tunnel-env
   SERVER_HOST: ${SERVER_HOST:?}
   SERVER_PORT: ${SERVER_PORT:-34051}
-  TARGET_HOST: ${TARGET_HOST:-127.0.0.1}
+  TARGET_HOST: ${TARGET_HOST:-host.docker.internal}
   TARGET_PORT: ${TARGET_PORT:?}
   CHECK_PORT: ${CHECK_PORT:-13001}
   CHECK_MODE: ${CHECK_MODE:-http}
@@ -24,8 +24,11 @@ services:
     build: .
     image: reverse-ssh-client:local
     restart: unless-stopped
-    # host network: can reach any service on this machine, e.g. 127.0.0.1:3001
-    network_mode: host
+    # Project network: reaches compose services by name (e.g. browser:3001),
+    # so they need no ports on the host. Services of the host itself are at
+    # host.docker.internal (they must listen on 0.0.0.0 or the docker bridge).
+    extra_hosts:
+      - host.docker.internal:host-gateway
     environment:
       <<: *tunnel-env
       SERVER_HOST_KEY: ${SERVER_HOST_KEY:?}
@@ -45,7 +48,8 @@ services:
     restart: unless-stopped
     depends_on: [tunnel]
     entrypoint: ["/bin/sh", "/usr/local/bin/watchdog.sh"]
-    network_mode: host
+    # tunnel's network namespace -> sees its 127.0.0.1:CHECK_PORT loop listener
+    network_mode: "service:tunnel"
     # same PID namespace as tunnel -> can kill its ssh without the docker socket
     pid: "service:tunnel"
     environment:

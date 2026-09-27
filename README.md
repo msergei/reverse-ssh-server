@@ -6,11 +6,13 @@ another host (server) through a reverse SSH tunnel.
 ```
 LAN user ──▶ server 192.168.10.53:13000 ─┐
                                          │ ssh -R (client dials out to server:34051)
-client:  127.0.0.1:3001 (e.g. Firefox) ◀─┘
+client:  browser:3001 (Firefox)        ◀─┘
 ```
 
 The server only runs a locked-down sshd; the client dials out, so it needs no
-open ports. The published port is bound to the server's LAN address only.
+open ports. The published port is bound to the server's LAN address only. On
+the client the service has no port on the host either: the tunnel reaches it
+over the compose network.
 
 ## Security model
 
@@ -23,6 +25,13 @@ compromised. Now:
   dropped; no shell, no TTY, no agent/X11 forwarding.
 - The key may only do `-R 0.0.0.0:13000` and `-L 127.0.0.1:13000`
   (both in `sshd_config` and as `authorized_keys` options).
+- **No outgoing connections from the server container**: at start the
+  entrypoint loads an nftables policy (`egress.nft`) into the container's
+  network namespace, then drops to `tunnel` with no capabilities left. Even an
+  sshd exploit can't reach the LAN, the host or the internet (e.g. to fetch a
+  miner). The container is also capped at 1 CPU (the tunnel needs ~3%).
+- On the client the private key is removed from the tunnel process
+  environment after it is written to a tmpfs file.
 - **Pinned server host key** on the client, so no trust-on-first-use.
 - Published port bound to `LAN_BIND` only. Never forward it on the router.
 - Secrets live only in `.env` files (git-ignored). The client private key is
@@ -66,10 +75,13 @@ docker compose up -d --build
 ```
 
 `docker-compose.browser.yml` adds Firefox (linuxserver, HTTPS with a
-self-signed cert and basic auth) on `127.0.0.1:${TARGET_PORT}`. Remove it from
-`COMPOSE_FILE` in `.env` to tunnel some other local service. For a non-HTTP
-service, set `CHECK_MODE=tcp` (the watchdog then can't detect a broken loop,
-only reconnects on SSH keepalive failures).
+self-signed cert and basic auth) as `browser:3001` on the compose network, with
+no port on the host. To tunnel some other service instead, remove it from
+`COMPOSE_FILE` in `.env` and set `TARGET_HOST`/`TARGET_PORT`: a compose service
+name, or `host.docker.internal` for a service of the host (it must listen on
+`0.0.0.0` or the docker bridge). For a non-HTTP service, set `CHECK_MODE=tcp`
+(the watchdog then can't detect a broken loop, only reconnects on SSH
+keepalive failures).
 
 Open `https://<LAN_BIND>:<LAN_PORT>/` from the LAN.
 

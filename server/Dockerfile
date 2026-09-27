@@ -1,16 +1,17 @@
 FROM alpine:3.22
 
-RUN apk add --no-cache openssh-server && \
+RUN apk add --no-cache openssh-server nftables setpriv && \
     adduser -D -H -u 10022 -s /sbin/nologin tunnel && \
     sed -i 's/^tunnel:!/tunnel:*/' /etc/shadow && \
     mkdir -p /data && chown tunnel:tunnel /data && chmod 700 /data
 
 COPY sshd_config /etc/ssh/sshd_config
+COPY egress.nft /etc/egress.nft
 COPY entrypoint.sh /entrypoint.sh
 
-# sshd runs unprivileged: only the "tunnel" user can log in, and a sshd
+# Starts as root only to load the egress firewall, then entrypoint.sh drops to
+# the "tunnel" user with no capabilities: only "tunnel" can log in, and a sshd
 # compromise yields no root inside the container.
-USER tunnel
 EXPOSE 2222
 
 ENTRYPOINT ["/bin/sh", "/entrypoint.sh"]

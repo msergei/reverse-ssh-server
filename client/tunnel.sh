@@ -4,14 +4,21 @@
 # so the watchdog can test the whole loop end to end.
 set -eu
 
-: "${SERVER_HOST:?}" "${SERVER_PORT:?}" "${SERVER_HOST_KEY:?}" "${SSH_PRIVATE_KEY_B64:?}"
-: "${TARGET_HOST:=127.0.0.1}" "${TARGET_PORT:?}" "${CHECK_PORT:=13001}" "${RETRY_DELAY:=10}"
+D=/run/tunnel
+if [ -n "${SSH_PRIVATE_KEY_B64:-}" ]; then
+    echo "$SSH_PRIVATE_KEY_B64" | base64 -d > "$D/id_ed25519"
+    chmod 600 "$D/id_ed25519"
+    # Re-exec without the key in the environment, so it can't be read from
+    # /proc/<pid>/environ (the watchdog shares this PID namespace)
+    exec env -u SSH_PRIVATE_KEY_B64 /bin/sh "$0" "$@"
+fi
+[ -s "$D/id_ed25519" ] || { echo "SSH_PRIVATE_KEY_B64 is empty" >&2; exit 1; }
+
+: "${SERVER_HOST:?}" "${SERVER_PORT:?}" "${SERVER_HOST_KEY:?}"
+: "${TARGET_HOST:=host.docker.internal}" "${TARGET_PORT:?}" "${CHECK_PORT:=13001}" "${RETRY_DELAY:=10}"
 
 log() { echo "$(date '+%F %T') tunnel: $*"; }
 
-D=/run/tunnel
-echo "$SSH_PRIVATE_KEY_B64" | base64 -d > "$D/id_ed25519"
-chmod 600 "$D/id_ed25519"
 # Pinned server key: no trust-on-first-use, no silent MITM
 if [ "$SERVER_PORT" = 22 ]; then HK="$SERVER_HOST"; else HK="[$SERVER_HOST]:$SERVER_PORT"; fi
 echo "$HK $SERVER_HOST_KEY" > "$D/known_hosts"

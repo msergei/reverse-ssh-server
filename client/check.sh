@@ -4,7 +4,7 @@
 #   loop:   through client -> server:13000 -> back to the service (CHECK_PORT)
 # CHECK_MODE=http: expects any HTTP(S) response; tcp: connection accepted
 # (tcp can't tell a broken loop, since the local -L listener always accepts).
-: "${TARGET_HOST:=127.0.0.1}" "${CHECK_PORT:=13001}" "${CHECK_MODE:=http}" "${CHECK_SCHEME:=https}"
+: "${TARGET_HOST:=host.docker.internal}" "${CHECK_PORT:=13001}" "${CHECK_MODE:=http}" "${CHECK_SCHEME:=https}"
 
 case "$1" in
     target) host=$TARGET_HOST; port=$TARGET_PORT ;;

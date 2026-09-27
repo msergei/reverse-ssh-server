@@ -1,0 +1,11 @@
+# Loaded by entrypoint.sh into the container's own network namespace.
+# No new outgoing connections: sshd only needs loopback (the -L check goes to
+# 127.0.0.1:13000) and replies to incoming connections. Even a compromised sshd
+# can't reach the LAN, the host or the internet.
+table inet egress {
+    chain output {
+        type filter hook output priority filter; policy drop;
+        oif "lo" accept
+        ct state established,related accept
+    }
+}
