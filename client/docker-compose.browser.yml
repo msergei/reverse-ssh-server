@@ -1,0 +1,30 @@
+# Remote browser to publish through the tunnel. Enable in .env:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.browser.yml
+services:
+  browser:
+    # Docker Hub mirror of lscr.io/linuxserver/firefox (lscr.io is flaky from RU)
+    image: linuxserver/firefox:latest
+    restart: unless-stopped
+    ports:
+      # HTTPS (self-signed); only on localhost, reachable from outside only via the tunnel
+      - "127.0.0.1:${TARGET_PORT}:3001"
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: ${TZ:-Europe/Moscow}
+      CUSTOM_USER: ${BROWSER_USER:?}
+      PASSWORD: ${BROWSER_PASSWORD:?}
+    volumes:
+      - browser:/config
+    tmpfs:
+      - /tmp
+    shm_size: "1gb"
+    mem_limit: ${BROWSER_MEM_LIMIT:-2g}
+    security_opt:
+      - seccomp:unconfined
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+volumes:
+  browser:

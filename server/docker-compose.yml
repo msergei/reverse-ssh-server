@@ -1,0 +1,36 @@
+name: reverse-ssh-server
+
+services:
+  sshd:
+    build: .
+    image: reverse-ssh-server:local
+    restart: unless-stopped
+    ports:
+      # SSH for tunnel clients (forward this port on the router)
+      - "${SSH_PORT:-34051}:2222"
+      # Tunnelled service: bound to the LAN address only, never forward it on the router
+      - "${LAN_BIND:?set LAN_BIND in .env}:${LAN_PORT:-13000}:13000"
+    environment:
+      AUTHORIZED_KEYS: ${AUTHORIZED_KEYS:?set AUTHORIZED_KEYS in .env}
+    volumes:
+      - hostkeys:/data
+    tmpfs:
+      - /run/tunnel:uid=10022,gid=10022,mode=0700
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 64m
+    healthcheck:
+      # a TCP probe would trip sshd PerSourcePenalties, so just check the process
+      test: ["CMD-SHELL", "kill -0 $$(cat /run/tunnel/sshd.pid)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+volumes:
+  hostkeys:

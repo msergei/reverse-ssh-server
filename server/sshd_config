@@ -1,0 +1,42 @@
+Port 2222
+ListenAddress 0.0.0.0
+HostKey /data/ssh_host_ed25519_key
+PidFile /run/tunnel/sshd.pid
+AuthorizedKeysFile /run/tunnel/authorized_keys
+
+# Keys only, one user, no root
+AllowUsers tunnel
+PermitRootLogin no
+AuthenticationMethods publickey
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAcceptedAlgorithms ssh-ed25519
+MaxAuthTries 2
+MaxSessions 2
+MaxStartups 4:50:10
+LoginGraceTime 15
+
+# Nothing but port forwarding
+ForceCommand /bin/false
+PermitTTY no
+X11Forwarding no
+AllowAgentForwarding no
+AllowStreamLocalForwarding no
+PermitTunnel no
+PermitUserRC no
+PermitUserEnvironment no
+AllowTcpForwarding yes
+# -R must bind 0.0.0.0 inside the container, otherwise Docker's published
+# port can't reach it. Only port 13000 is allowed (see authorized_keys too).
+GatewayPorts clientspecified
+PermitListen 0.0.0.0:13000
+# -L back to the listener, used by the client watchdog for an end-to-end check
+PermitOpen 127.0.0.1:13000
+
+# Drop dead sessions fast so a stale one never keeps port 13000 busy
+ClientAliveInterval 10
+ClientAliveCountMax 3
+TCPKeepAlive yes
+
+LogLevel VERBOSE

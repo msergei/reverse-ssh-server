@@ -1,0 +1,54 @@
+name: reverse-ssh-client
+
+x-tunnel-env: &tunnel-env
+  SERVER_HOST: ${SERVER_HOST:?}
+  SERVER_PORT: ${SERVER_PORT:-34051}
+  TARGET_HOST: ${TARGET_HOST:-127.0.0.1}
+  TARGET_PORT: ${TARGET_PORT:?}
+  CHECK_PORT: ${CHECK_PORT:-13001}
+  CHECK_MODE: ${CHECK_MODE:-http}
+  CHECK_SCHEME: ${CHECK_SCHEME:-https}
+
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+
+services:
+  tunnel:
+    <<: *hardening
+    build: .
+    image: reverse-ssh-client:local
+    restart: unless-stopped
+    # host network: can reach any service on this machine, e.g. 127.0.0.1:3001
+    network_mode: host
+    environment:
+      <<: *tunnel-env
+      SERVER_HOST_KEY: ${SERVER_HOST_KEY:?}
+      SSH_PRIVATE_KEY_B64: ${SSH_PRIVATE_KEY_B64:?}
+    tmpfs:
+      - /run/tunnel:uid=10022,gid=10022,mode=0700
+    healthcheck:
+      test: ["CMD", "check.sh", "loop"]
+      interval: 30s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
+
+  watchdog:
+    <<: *hardening
+    image: reverse-ssh-client:local
+    restart: unless-stopped
+    depends_on: [tunnel]
+    entrypoint: ["/bin/sh", "/usr/local/bin/watchdog.sh"]
+    network_mode: host
+    # same PID namespace as tunnel -> can kill its ssh without the docker socket
+    pid: "service:tunnel"
+    environment:
+      <<: *tunnel-env
+      WATCHDOG_INTERVAL: ${WATCHDOG_INTERVAL:-30}
+      WATCHDOG_MAX_FAILS: ${WATCHDOG_MAX_FAILS:-3}
