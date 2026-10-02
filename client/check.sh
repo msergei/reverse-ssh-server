@@ -15,6 +15,9 @@ esac
 if [ "$CHECK_MODE" = tcp ]; then
     nc -z -w 5 "$host" "$port"
 else
-    # --insecure: the service usually has a self-signed cert; any status code is fine
-    curl -sk -o /dev/null --max-time 10 "$CHECK_SCHEME://$host:$port/"
+    # --insecure: the service usually has a self-signed cert; any status code is
+    # fine. Judge by the status, not curl's exit: KasmVNC drops TLS without a
+    # close_notify after answering, so curl exits 56 on a healthy service.
+    code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 "$CHECK_SCHEME://$host:$port/")
+    [ "${code:-000}" != 000 ]
 fi

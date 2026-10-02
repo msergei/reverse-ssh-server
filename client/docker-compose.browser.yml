@@ -2,10 +2,12 @@
 #   COMPOSE_FILE=docker-compose.yml:docker-compose.browser.yml
 #   TARGET_HOST=browser
 #   TARGET_PORT=3001
+# On a Raspberry Pi 4 add docker-compose.browser-rpi.yml (hardware H.264).
 services:
   browser:
-    # Docker Hub mirror of lscr.io/linuxserver/firefox (lscr.io is flaky from RU)
-    image: linuxserver/firefox:latest
+    # Docker Hub mirror of lscr.io/linuxserver/chromium (lscr.io is flaky from
+    # RU). Chromium: on a Pi 4 it loads the CPU noticeably less than Firefox.
+    image: linuxserver/chromium:latest
     restart: unless-stopped
     # No ports on the host: only the tunnel reaches it, over the project
     # network (HTTPS with a self-signed cert on 3001)
@@ -15,11 +17,25 @@ services:
       TZ: ${TZ:-Europe/Moscow}
       CUSTOM_USER: ${BROWSER_USER:?}
       PASSWORD: ${BROWSER_PASSWORD:?}
+      DISABLE_IPV6: "true"
+      # Software encoding on a Pi: a Retina client asks for its native
+      # 3456x2160 at 60 FPS. CSS scaling sends the logical size (4x fewer
+      # pixels), and the frame rate is capped.
+      SELKIES_USE_CSS_SCALING: ${BROWSER_CSS_SCALING:-true|locked}
+      SELKIES_FRAMERATE: ${BROWSER_FRAMERATE:-20,8-20}
+      # Full-frame x264 re-encodes the whole screen every frame (~1 core on a
+      # Pi). Striped H.264 encodes only the stripes that changed, in parallel.
+      SELKIES_ENCODER: ${BROWSER_ENCODER:-h264enc-striped,jpeg,h264enc}
     volumes:
-      - browser:/config
+      - browser-chromium:/config
+      # uBlock Origin Lite, no autoplay. The Russian CAs go into the profile's
+      # NSS db instead (chromium-certs.sh): CACertificates has no effect here.
+      - ./chromium-policies.json:/etc/chromium/policies/managed/policies.json:ro
     tmpfs:
       - /tmp
     shm_size: "1gb"
+    ulimits:
+      nofile: {soft: 65536, hard: 65536}
     mem_limit: ${BROWSER_MEM_LIMIT:-2g}
     security_opt:
       - seccomp:unconfined
@@ -28,4 +44,4 @@ services:
       options: {max-size: "10m", max-file: "3"}
 
 volumes:
-  browser:
+  browser-chromium:

@@ -1,0 +1,17 @@
+# Raspberry Pi 4 hardware H.264 encoder (bcm2835-codec, V4L2 M2M, up to
+# 1920x1080). Add after docker-compose.browser.yml in COMPOSE_FILE.
+#
+# /dev/dri (V3D) is left out on purpose: with it the compositor renders on the
+# GPU, pixelflux reads frames back and tries only VA-API, then falls back to
+# x264 (~1.3 cores). Without it the browser renders in software, which costs
+# less (measured, also against KasmVNC with the browser on V3D).
+services:
+  browser:
+    environment:
+      # Only the full-frame h264enc runs on hardware; striped is CPU-only
+      SELKIES_ENCODER: ${BROWSER_ENCODER:-h264enc,h264enc-striped,jpeg}
+    devices:
+      - /dev/video11:/dev/video11
+    volumes:
+      # Adds abc to the device's group (the image only does this for /dev/dri)
+      - ./rpi-init:/custom-cont-init.d:ro
